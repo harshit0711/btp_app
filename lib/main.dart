@@ -166,14 +166,15 @@ class _HomeState extends State<Home> {
     final response = await api?.save(imageName, imagebytes);
     print(response?.downloadLink);
     try {
-      var postResponse = await Dio().post("https://btp-backend-1.el.r.appspot.com/api/v1/posts/createPost",
-      data: {
-        "description": descController.text.toString(),
-        "imgLink": response?.downloadLink.toString(),
-        "unixTime": datetime,
-        "longitude": currentPostion.longitude,
-        "latitude": currentPostion.latitude
-      });
+      var postResponse = await Dio().post(
+          "https://btp-backend-1.el.r.appspot.com/api/v1/posts/createPost",
+          data: {
+            "description": descController.text.toString(),
+            "imgLink": response?.downloadLink.toString(),
+            "unixTime": datetime,
+            "longitude": currentPostion.longitude,
+            "latitude": currentPostion.latitude
+          });
       print(postResponse.statusCode);
       print(postResponse.data.toString());
     } catch (e) {
@@ -188,80 +189,7 @@ class _HomeState extends State<Home> {
         return AlertDialog(
           title: Text('Image Posted'),
         );
-      });
-  }
-
-  void getPost() async {
-    var getResponse = await Dio().get("https://btp-backend-1.el.r.appspot.com/api/v1/posts");
-    print(getResponse.statusCode);
-    // final body = (getResponse.data as List).map((e) => OnBoardingModel);
-    // for(var temp in getResponse.data)
-    //   print(temp["imgLink"]);
-    // print(getResponse.data[14]["longitude"]);
-    var date = DateTime.fromMillisecondsSinceEpoch(getResponse.data[13]["unixTime"]);
-    print(date);
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
-          elevation: 16,
-          child: Container(
-            child: ListView(
-              shrinkWrap: true,
-              children: <Widget>[
-                SizedBox(height: 20),
-                Center(child: Text('Posts')),
-                SizedBox(height: 20),
-                for(var post in getResponse.data)
-                _buildRow(post["imgLink"].toString(), post["description"].toString(), post["latitude"], post["longitude"], DateTime.fromMillisecondsSinceEpoch(post["unixTime"]).toString())
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-  Widget _buildRow(String imageLink, String desc, double lat, double lon, String date) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Column(
-        children: <Widget>[
-          SizedBox(height: 12),
-          Container(height: 2, color: Colors.redAccent),
-          SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(imageLink,
-                //to show image, you type like this.
-                // Image.network(imageLink),
-                fit: BoxFit.cover,
-                width: MediaQuery.of(context).size.width,
-                height: 300,
-              ),
-            ),
-          ),
-          Text("Description: $desc"),
-          Text("Date and Time: $date"),
-          Text("Latitude: "'$lat'),
-          Text("Longitude: "'$lon'),
-          // Row(
-          //   children: <Widget>[
-          //     CircleAvatar(child: Image.network(imageLink)),
-          //     SizedBox(width: 12),
-          //     Text(desc),
-          //     Spacer(),
-          //     Container(
-          //       decoration: BoxDecoration(color: Colors.yellow[900], borderRadius: BorderRadius.circular(20)),
-          //       padding: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-          //       child: Text(date),
-          //     ),
-          //   ],
-          // ),
-        ],
-      ),
+      }
     );
   }
 
@@ -297,8 +225,8 @@ class _HomeState extends State<Home> {
                           //to show image, you type like this.
                           File(image!.path),
                           fit: BoxFit.cover,
-                          width: MediaQuery.of(context).size.width,
-                          height: 300,
+                          // width: MediaQuery.of(context).size.width,
+                          // height: 300,
                         ),
                       ),
                     )
@@ -321,15 +249,104 @@ class _HomeState extends State<Home> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  getPost();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => nextPage()),
+                  );
                 },
                 child: Text('Get all posts'),
               ),
-
-              // Image.network('https://storage.googleapis.com/download/storage/v1/b/post-images-btp-backend/o/image_picker1489233255569740349.jpg?generation=1675701216300036&alt=media'),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class nextPage extends StatefulWidget {
+  @override
+  _NextState createState() => _NextState();
+}
+
+class _NextState extends State<nextPage> {
+  Future<Response> _getData() async {
+    var getResponse =
+        await Dio().get("https://btp-backend-1.el.r.appspot.com/api/v1/posts");
+    return getResponse;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("All Posts"),
+      ),
+      body: FutureBuilder(
+        future: _getData(),
+        builder: (BuildContext context, AsyncSnapshot snapshot) {
+          if (!snapshot.hasData) {
+            // while data is loading:
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          } else {
+            // data loaded:
+            final getResponse = snapshot.data;
+            return Center(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: <Widget>[
+                    for (var post in getResponse.data)
+                      _buildRow(
+                          post["imgLink"].toString(),
+                          post["description"].toString(),
+                          post["latitude"],
+                          post["longitude"],
+                          DateTime.fromMillisecondsSinceEpoch(post["unixTime"])
+                              .toString())
+                  ],
+                ),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildRow(
+      String imageLink, String desc, double lat, double lon, String date) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: Column(
+        children: <Widget>[
+          SizedBox(height: 12),
+          Container(height: 2, color: Colors.redAccent),
+          SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                imageLink,
+                //to show image, you type like this.
+                fit: BoxFit.cover,
+                // width: MediaQuery.of(context).size.width,
+                // height: 300,
+              ),
+            ),
+          ),
+          Text("Description: $desc"),
+          Text("Date and Time: $date"),
+          Text("Latitude: " '$lat'),
+          Text("Longitude: " '$lon'),
+        ],
       ),
     );
   }
