@@ -8,6 +8,7 @@ import 'package:async/async.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 // import 'package:geocoding/geocoding.dart';
 import 'api.dart';
@@ -281,6 +282,20 @@ class _NextState extends State<nextPage> {
     super.initState();
   }
 
+//   static void navigateTo(double lat, double lng) async {
+//    var uri = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
+//    if (await canLaunch(uri.toString())) {
+//       await launch(uri.toString());
+//    } else {
+//       throw 'Could not launch ${uri.toString()}';
+//    }
+//  }
+
+  static Future<void> navigateTo(double latitude, double longitude) async {
+    String googleUrl = 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+    await launch(googleUrl);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -346,6 +361,15 @@ class _NextState extends State<nextPage> {
           Text("Date and Time: $date"),
           Text("Latitude: " '$lat'),
           Text("Longitude: " '$lon'),
+          TextButton(
+            style: TextButton.styleFrom(
+              textStyle: const TextStyle(fontSize: 20),
+            ),
+            onPressed: () {
+              navigateTo(lat, lon);
+            },
+            child: const Text('View on map'),
+          ),
         ],
       ),
     );
