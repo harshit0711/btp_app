@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -158,7 +160,34 @@ class _HomeState extends State<Home> {
     });
   }
 
+  void samplePost() async {
+    var test =
+        await Dio().get("https://ml-backend-inpm4aannq-el.a.run.app/ping");
+    print(test.data);
+    test.data == "OK" ? print("fine") : print("not fine");
+    FormData formData = FormData.fromMap({
+      "file": await MultipartFile.fromFile(image!.path, filename: imageName),
+    });
+    var predict = await Dio().post(
+        "https://ml-backend-inpm4aannq-el.a.run.app/predict",
+        data: formData);
+    print(image!.path);
+    print(predict.data["prediction"]);
+    print(predict.data["prediction"][0][0]);
+    print(predict.data["prediction"][0][1]);
+  }
+
   void myPost() async {
+    showDialog(
+        context: context,
+        builder: (context) {
+          Future.delayed(Duration(seconds: 5), () {
+            Navigator.of(context).pop(true);
+          });
+          return AlertDialog(
+            title: Text('Posting Image'),
+          );
+        });
     _getCurrentTime();
     _getUserLocation();
     print(currentPostion.latitude);
@@ -166,32 +195,67 @@ class _HomeState extends State<Home> {
     print(datetime);
     final response = await api?.save(imageName, imagebytes);
     print(response?.downloadLink);
-    try {
-      var postResponse = await Dio().post(
-          "https://btp-backend-1.el.r.appspot.com/api/v1/posts/createPost",
-          data: {
-            "description": descController.text.toString(),
-            "imgLink": response?.downloadLink.toString(),
-            "unixTime": datetime,
-            "longitude": currentPostion.longitude,
-            "latitude": currentPostion.latitude
+    var test =
+        await Dio().get("https://ml-backend-inpm4aannq-el.a.run.app/ping");
+    FormData formData = FormData.fromMap({
+      "file": await MultipartFile.fromFile(image!.path, filename: imageName),
+    });
+    var predict = await Dio().post(
+        "https://ml-backend-inpm4aannq-el.a.run.app/predict",
+        data: formData);
+    if (test.data == "OK") {
+      if (predict.data["prediction"] != null) {
+        try {
+          var postResponse = await Dio().post(
+              "https://btp-backend-1.el.r.appspot.com/api/v1/posts/createPost",
+              data: {
+                "description": descController.text.toString(),
+                "imgLink": response?.downloadLink.toString(),
+                "unixTime": datetime,
+                "longitude": currentPostion.longitude,
+                "latitude": currentPostion.latitude,
+                "classId": predict.data["prediction"][0][0],
+                "className": predict.data["prediction"][0][1].toString()
+              });
+          print(postResponse.statusCode);
+          print(postResponse.data.toString());
+        } catch (e) {
+          print(e);
+        }
+      } else {
+        showDialog(
+            context: context,
+            builder: (context) {
+              Future.delayed(Duration(seconds: 5), () {
+                Navigator.of(context).pop(true);
+              });
+              return AlertDialog(
+                title: Text('Predictor returned null'),
+              );
+            });
+      }
+    } else {
+      showDialog(
+          context: context,
+          builder: (context) {
+            Future.delayed(Duration(seconds: 5), () {
+              Navigator.of(context).pop(true);
+            });
+            return AlertDialog(
+              title: Text('Predictor is not working'),
+            );
           });
-      print(postResponse.statusCode);
-      print(postResponse.data.toString());
-    } catch (e) {
-      print(e);
     }
     showDialog(
-      context: context,
-      builder: (context) {
-        Future.delayed(Duration(seconds: 5), () {
-          Navigator.of(context).pop(true);
+        context: context,
+        builder: (context) {
+          Future.delayed(Duration(seconds: 5), () {
+            Navigator.of(context).pop(true);
+          });
+          return AlertDialog(
+            title: Text('Image Posted'),
+          );
         });
-        return AlertDialog(
-          title: Text('Image Posted'),
-        );
-      }
-    );
   }
 
   TextEditingController descController = new TextEditingController();
@@ -250,6 +314,12 @@ class _HomeState extends State<Home> {
               ),
               ElevatedButton(
                 onPressed: () {
+                  samplePost();
+                },
+                child: Text('Sample Post'),
+              ),
+              ElevatedButton(
+                onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => nextPage()),
@@ -282,17 +352,9 @@ class _NextState extends State<nextPage> {
     super.initState();
   }
 
-//   static void navigateTo(double lat, double lng) async {
-//    var uri = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
-//    if (await canLaunch(uri.toString())) {
-//       await launch(uri.toString());
-//    } else {
-//       throw 'Could not launch ${uri.toString()}';
-//    }
-//  }
-
   static Future<void> navigateTo(double latitude, double longitude) async {
-    String googleUrl = 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+    String googleUrl =
+        'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
     await launch(googleUrl);
   }
 
@@ -318,13 +380,17 @@ class _NextState extends State<nextPage> {
                 child: Column(
                   children: <Widget>[
                     for (var post in getResponse.data)
-                      _buildRow(
-                          post["imgLink"].toString(),
-                          post["description"].toString(),
-                          post["latitude"],
-                          post["longitude"],
-                          DateTime.fromMillisecondsSinceEpoch(post["unixTime"])
-                              .toString())
+                      if (post["className"] != null)
+                        _buildRow(
+                            post["imgLink"].toString(),
+                            post["description"].toString(),
+                            post["latitude"],
+                            post["longitude"],
+                            DateTime.fromMillisecondsSinceEpoch(
+                                    post["unixTime"])
+                                .toString(),
+                            post["classId"],
+                            post["className"])
                   ],
                 ),
               ),
@@ -335,8 +401,8 @@ class _NextState extends State<nextPage> {
     );
   }
 
-  Widget _buildRow(
-      String imageLink, String desc, double lat, double lon, String date) {
+  Widget _buildRow(String imageLink, String desc, double lat, double lon,
+      String date, int classId, String className) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
@@ -361,6 +427,7 @@ class _NextState extends State<nextPage> {
           Text("Date and Time: $date"),
           Text("Latitude: " '$lat'),
           Text("Longitude: " '$lon'),
+          Text("Prediction: $className"),
           TextButton(
             style: TextButton.styleFrom(
               textStyle: const TextStyle(fontSize: 20),
