@@ -12,8 +12,8 @@ import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
-// import 'package:geocoding/geocoding.dart';
 import 'api.dart';
+import 'package:dotted_border/dotted_border.dart';
 
 void main() => runApp(MaterialApp(
       home: Home(),
@@ -26,11 +26,77 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  int pageIndex = 0;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      pageIndex = index;
+    });
+  }
+
+  final pages = [
+    Page1(),
+    Page2(),
+    // Page3(),
+    Icon(
+      Icons.map_outlined,
+      size: 150,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "Road Reporter",
+          style: TextStyle(
+            color: Theme.of(context).primaryColor,
+            fontSize: 25,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+      ),
+      body: pages[pageIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_a_photo_rounded),
+            label: 'Upload',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.view_headline_rounded),
+            label: 'Posts',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map_outlined),
+            label: 'Map',
+          ),
+        ],
+        currentIndex: pageIndex,
+        onTap: _onItemTapped,
+      ),
+    );
+  }
+}
+
+class Page1 extends StatefulWidget {
+  @override
+  _Page1State createState() => _Page1State();
+}
+
+class _Page1State extends State<Page1> {
   File? image;
   late Uint8List imagebytes;
   late String imageName;
   PickedFile? _pickedFile;
   CloudApi? api;
+  final ImagePicker _picker = ImagePicker();
+  late Position currentPostion;
+  late int datetime;
+  TextEditingController descController = TextEditingController();
 
   @override
   void initState() {
@@ -40,11 +106,12 @@ class _HomeState extends State<Home> {
     });
   }
 
-  final ImagePicker _picker = ImagePicker();
-
   //we can upload image from camera or from gallery based on parameter
   Future _pickImage(ImageSource media) async {
-    _pickedFile = await _picker.getImage(source: media);
+    _pickedFile = await _picker.getImage(source: media
+        // maxHeight: 100,
+        // maxWidth: 100
+        );
 
     setState(() {
       image = File(_pickedFile!.path);
@@ -99,8 +166,6 @@ class _HomeState extends State<Home> {
         });
   }
 
-  late Position currentPostion;
-
   void _getUserLocation() async {
     // var position = await GeolocatorPlatform.instance
     //     .getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
@@ -151,8 +216,6 @@ class _HomeState extends State<Home> {
     });
     // return await Geolocator.getCurrentPosition();
   }
-
-  late int datetime;
 
   void _getCurrentTime() async {
     setState(() {
@@ -258,18 +321,60 @@ class _HomeState extends State<Home> {
         });
   }
 
-  TextEditingController descController = new TextEditingController();
+  // ignore: prefer_final_fields
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Upload Image'),
+        centerTitle: true,
       ),
       body: Center(
         child: SingleChildScrollView(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              DottedBorder(
+                  borderType: BorderType.RRect,
+                  radius: const Radius.circular(12),
+                  // padding: EdgeInsets.all(6),
+                  color: Colors.black,
+                  strokeWidth: 2,
+                  child: SizedBox(
+                    height: 320,
+                    width: 320,
+                    child: image == null
+                        ? IconButton(
+                            icon: const Icon(Icons.add_a_photo_rounded),
+                            onPressed: () {
+                              myAlert();
+                            })
+                        : Stack(
+                            children: <Widget>[
+                              ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.file(
+                                    //to show image, you type like this.
+                                    File(image!.path),
+                                    width: 640,
+                                    height: 640,
+                                    // fit: BoxFit.cover,
+                                  )),
+                              Positioned(
+                                  right: -9,
+                                  top: -9,
+                                  child: IconButton(
+                                      icon: Icon(
+                                        Icons.cancel,
+                                        color: Colors.black,
+                                        size: 30,
+                                      ),
+                                      onPressed: () => setState(() {
+                                            image = null;
+                                          })))
+                            ],
+                          ),
+                  )),
               ElevatedButton(
                 onPressed: () {
                   myAlert();
@@ -299,13 +404,62 @@ class _HomeState extends State<Home> {
                       "No Image",
                       style: TextStyle(fontSize: 20),
                     ),
-              TextField(
-                controller: descController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Enter a description',
-                ),
-              ),
+              // SizedBox(height: 12),
+              Container(
+                  margin: const EdgeInsets.symmetric(
+                      vertical: 12.0, horizontal: 20),
+                  height: 50.0,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: <Widget>[
+                      Container(
+                        width: 200,
+                        color: Colors.purple[600],
+                        child: const Center(
+                            child: Text(
+                          'Item 1',
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        )),
+                      ),
+                      Container(
+                        width: 200,
+                        color: Colors.purple[500],
+                        child: const Center(
+                            child: Text(
+                          'Item 2',
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        )),
+                      ),
+                      Container(
+                        width: 200,
+                        color: Colors.purple[400],
+                        child: const Center(
+                            child: Text(
+                          'Item 3',
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        )),
+                      ),
+                      Container(
+                        width: 200,
+                        color: Colors.purple[300],
+                        child: const Center(
+                            child: Text(
+                          'Item 4',
+                          style: TextStyle(fontSize: 18, color: Colors.white),
+                        )),
+                      ),
+                    ],
+                  )),
+              // SizedBox(height: 12),
+              Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextField(
+                    controller: descController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Enter a description',
+                    ),
+                  )),
               ElevatedButton(
                 onPressed: () {
                   myPost();
@@ -318,15 +472,6 @@ class _HomeState extends State<Home> {
                 },
                 child: Text('Sample Post'),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => nextPage()),
-                  );
-                },
-                child: Text('Get all posts'),
-              ),
             ],
           ),
         ),
@@ -335,12 +480,12 @@ class _HomeState extends State<Home> {
   }
 }
 
-class nextPage extends StatefulWidget {
+class Page2 extends StatefulWidget {
   @override
-  _NextState createState() => _NextState();
+  _Page2State createState() => _Page2State();
 }
 
-class _NextState extends State<nextPage> {
+class _Page2State extends State<Page2> {
   Future<Response> _getData() async {
     var getResponse =
         await Dio().get("https://btp-backend-1.el.r.appspot.com/api/v1/posts");
@@ -363,6 +508,7 @@ class _NextState extends State<nextPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text("All Posts"),
+        centerTitle: true,
       ),
       body: FutureBuilder(
         future: _getData(),
@@ -408,7 +554,7 @@ class _NextState extends State<nextPage> {
       child: Column(
         children: <Widget>[
           SizedBox(height: 12),
-          Container(height: 2, color: Colors.redAccent),
+          Container(height: 2, color: Theme.of(context).primaryColor),
           SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
