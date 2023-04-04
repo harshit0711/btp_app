@@ -13,10 +13,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
 import 'api.dart';
+import 'login_screen.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'NetworkHandler.dart';
 
 void main() => runApp(MaterialApp(
-      home: Home(),
+      home: LoginScreen(),
       debugShowCheckedModeBanner: false,
     ));
 
@@ -97,6 +99,9 @@ class _Page1State extends State<Page1> {
   late Position currentPostion;
   late int datetime;
   TextEditingController descController = TextEditingController();
+  Map<String, int>? categories;
+  late int categoryID;
+  final networkHandler = NetworkHandler();
 
   @override
   void initState() {
@@ -224,20 +229,28 @@ class _Page1State extends State<Page1> {
   }
 
   void samplePost() async {
-    var test =
-        await Dio().get("https://ml-backend-inpm4aannq-el.a.run.app/ping");
+    var test = await networkHandler.get("/post/ping");
     print(test.data);
     test.data == "OK" ? print("fine") : print("not fine");
     FormData formData = FormData.fromMap({
       "file": await MultipartFile.fromFile(image!.path, filename: imageName),
     });
-    var predict = await Dio().post(
-        "https://ml-backend-inpm4aannq-el.a.run.app/predict",
-        data: formData);
+    var predict = await networkHandler.predict(formData);
     print(image!.path);
     print(predict.data["prediction"]);
-    print(predict.data["prediction"][0][0]);
-    print(predict.data["prediction"][0][1]);
+    print(predict.data["prediction"][0]);
+    print(predict.data["prediction"][0]);
+    _getCurrentTime();
+    _getUserLocation();
+    var data = {
+      "description": descController.text.toString(),
+      "unixTime": datetime,
+      "longitude": currentPostion.longitude,
+      "latitude": currentPostion.latitude,
+      "classId": predict.data["prediction"][0][0],
+      "className": predict.data["prediction"][0][1].toString()
+    };
+    print(json.encode(data));
   }
 
   void myPost() async {
@@ -258,28 +271,25 @@ class _Page1State extends State<Page1> {
     print(datetime);
     final response = await api?.save(imageName, imagebytes);
     print(response?.downloadLink);
-    var test =
-        await Dio().get("https://ml-backend-inpm4aannq-el.a.run.app/ping");
+    var test = await networkHandler.get("/predict/ping");
     FormData formData = FormData.fromMap({
       "file": await MultipartFile.fromFile(image!.path, filename: imageName),
     });
-    var predict = await Dio().post(
-        "https://ml-backend-inpm4aannq-el.a.run.app/predict",
-        data: formData);
+    var predict = await networkHandler.predict(formData);
     if (test.data == "OK") {
       if (predict.data["prediction"] != null) {
         try {
-          var postResponse = await Dio().post(
-              "https://btp-backend-1.el.r.appspot.com/api/v1/posts/createPost",
-              data: {
-                "description": descController.text.toString(),
-                "imgLink": response?.downloadLink.toString(),
-                "unixTime": datetime,
-                "longitude": currentPostion.longitude,
-                "latitude": currentPostion.latitude,
-                "classId": predict.data["prediction"][0][0],
-                "className": predict.data["prediction"][0][1].toString()
-              });
+          var data = {
+            "description": descController.text.toString(),
+            "imgLink": response?.downloadLink.toString(),
+            "unixTime": datetime,
+            "longitude": currentPostion.longitude,
+            "latitude": currentPostion.latitude,
+            "classId": predict.data["prediction"][0][0],
+            "className": predict.data["prediction"][0][1].toString()
+          };
+          var postResponse =
+              await networkHandler.post("/post/createPost", data);
           print(postResponse.statusCode);
           print(postResponse.data.toString());
         } catch (e) {
@@ -406,6 +416,7 @@ class _Page1State extends State<Page1> {
                     ),
               // SizedBox(height: 12),
               Container(
+                decoration: BoxDecoration(border: Border.all(), borderRadius: BorderRadius.all(Radius.circular(5))),
                   margin: const EdgeInsets.symmetric(
                       vertical: 12.0, horizontal: 20),
                   height: 50.0,
@@ -413,39 +424,40 @@ class _Page1State extends State<Page1> {
                     scrollDirection: Axis.horizontal,
                     children: <Widget>[
                       Container(
+                       
                         width: 200,
-                        color: Colors.purple[600],
+                        // color: Colors.purple[600],
                         child: const Center(
                             child: Text(
                           'Item 1',
-                          style: TextStyle(fontSize: 18, color: Colors.white),
+                          style: TextStyle(fontSize: 18),
                         )),
                       ),
                       Container(
+                        
                         width: 200,
-                        color: Colors.purple[500],
                         child: const Center(
                             child: Text(
                           'Item 2',
-                          style: TextStyle(fontSize: 18, color: Colors.white),
+                          style: TextStyle(fontSize: 18),
                         )),
                       ),
                       Container(
+                        
                         width: 200,
-                        color: Colors.purple[400],
                         child: const Center(
                             child: Text(
                           'Item 3',
-                          style: TextStyle(fontSize: 18, color: Colors.white),
+                          style: TextStyle(fontSize: 18),
                         )),
                       ),
                       Container(
+                        
                         width: 200,
-                        color: Colors.purple[300],
                         child: const Center(
                             child: Text(
                           'Item 4',
-                          style: TextStyle(fontSize: 18, color: Colors.white),
+                          style: TextStyle(fontSize: 18),
                         )),
                       ),
                     ],
@@ -486,9 +498,11 @@ class Page2 extends StatefulWidget {
 }
 
 class _Page2State extends State<Page2> {
+  // final loginApi = LoginApi();
+  final networkHandler = NetworkHandler();
   Future<Response> _getData() async {
-    var getResponse =
-        await Dio().get("https://btp-backend-1.el.r.appspot.com/api/v1/posts");
+    var getResponse = await networkHandler.get("/post/allPosts");
+    print(getResponse.data);
     return getResponse;
   }
 
@@ -525,18 +539,17 @@ class _Page2State extends State<Page2> {
               child: SingleChildScrollView(
                 child: Column(
                   children: <Widget>[
-                    for (var post in getResponse.data)
-                      if (post["className"] != null)
-                        _buildRow(
-                            post["imgLink"].toString(),
-                            post["description"].toString(),
-                            post["latitude"],
-                            post["longitude"],
-                            DateTime.fromMillisecondsSinceEpoch(
-                                    post["unixTime"])
-                                .toString(),
-                            post["classId"],
-                            post["className"])
+                    for (var post in getResponse.data["list"])
+                      _buildRow(
+                          post["imgLink"].toString(),
+                          post["description"].toString(),
+                          post["latitude"],
+                          post["longitude"],
+                          DateTime.fromMillisecondsSinceEpoch(post["unixTime"])
+                              .toString()
+                          // post["classId"],
+                          // post["className"]
+                          )
                   ],
                 ),
               ),
@@ -547,8 +560,8 @@ class _Page2State extends State<Page2> {
     );
   }
 
-  Widget _buildRow(String imageLink, String desc, double lat, double lon,
-      String date, int classId, String className) {
+  Widget _buildRow(
+      String imageLink, String desc, double lat, double lon, String date) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
@@ -573,7 +586,7 @@ class _Page2State extends State<Page2> {
           Text("Date and Time: $date"),
           Text("Latitude: " '$lat'),
           Text("Longitude: " '$lon'),
-          Text("Prediction: $className"),
+          // Text("Prediction: $className"),
           TextButton(
             style: TextButton.styleFrom(
               textStyle: const TextStyle(fontSize: 20),
