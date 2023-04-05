@@ -7,7 +7,6 @@ import 'utilities/constants.dart';
 import 'package:page_transition/page_transition.dart';
 import 'NetworkHandler.dart';
 
-
 class LoginScreen extends StatefulWidget {
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -155,11 +154,20 @@ class _LoginScreenState extends State<LoginScreen> {
               title: Text("Logged in successfully!"),
             );
           });
-      Navigator.pop(context);
-      Navigator.push(
+      // var temp = networkHandler.get("/user/ping");
+      var temp = networkHandler.get("/post/ping");
+      temp = networkHandler.get("/category/ping");
+      temp = networkHandler.get("/predict/ping");
+      Navigator.pushAndRemoveUntil(
           context,
           PageTransition(
-              type: PageTransitionType.rightToLeftWithFade, child: Home()));
+              type: PageTransitionType.rightToLeftWithFade, child: Home()),
+          (route) => false);
+      // Navigator.pop(context);
+      // Navigator.push(
+      //     context,
+      //     PageTransition(
+      //         type: PageTransitionType.rightToLeftWithFade, child: Home()));
     } else {
       showDialog(
           context: context,

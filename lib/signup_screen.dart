@@ -143,7 +143,8 @@ class _SignupScreenState extends State<SignupScreen> {
         "https://btp-backend-flask-inpm4aannq-el.a.run.app/api/v1/user/signup",
         data: {
           "email": emailController.text.toString(),
-          "password": passwordController.text.toString()
+          "password": passwordController.text.toString(),
+          "role" : "USER"
         });
     print(response.statusCode);
     print(response.data);

@@ -99,9 +99,11 @@ class _Page1State extends State<Page1> {
   late Position currentPostion;
   late int datetime;
   TextEditingController descController = TextEditingController();
-  Map<String, int>? categories;
-  late int categoryID;
+  Map<String, int> categories = {};
+  String category = "";
+  List<String> prediction = [];
   final networkHandler = NetworkHandler();
+  TextEditingController catController = TextEditingController();
 
   @override
   void initState() {
@@ -113,6 +115,7 @@ class _Page1State extends State<Page1> {
 
   //we can upload image from camera or from gallery based on parameter
   Future _pickImage(ImageSource media) async {
+    var temp = await networkHandler.get("/predict/ping");
     _pickedFile = await _picker.getImage(source: media
         // maxHeight: 100,
         // maxWidth: 100
@@ -123,6 +126,15 @@ class _Page1State extends State<Page1> {
       imagebytes = image!.readAsBytesSync();
       imageName = image!.path.split('/').last;
     });
+
+    FormData formData = FormData.fromMap({
+      "file": await MultipartFile.fromFile(image!.path, filename: imageName),
+    });
+    var predict = await networkHandler.predict(formData);
+    prediction.clear();
+    for (var value in predict.data["prediction"])
+      prediction.add(value.toString());
+    print(prediction);
   }
 
   //show popup dialog
@@ -167,6 +179,72 @@ class _Page1State extends State<Page1> {
                 ],
               ),
             ),
+          );
+        });
+  }
+
+  void selectmore(BuildContext context) async {
+    var getCategories = await networkHandler.get("/category/allCategories");
+    showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                title: Text('Select a category', textAlign: TextAlign.center),
+                content: SingleChildScrollView(
+                    child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    for (var trait in getCategories.data["list"])
+                      if (trait["isTrained"] == false)
+                        InkWell(
+                            onTap: () {
+                              setState(() {
+                                category = trait["categoryName"].toString();
+                              });
+                            },
+                            child: Container(
+                              height: 40,
+                              color: category != ""
+                                  ? category == trait["categoryName"].toString()
+                                      ? Colors.grey
+                                      : Colors.white
+                                  : Colors.white,
+                              child: Center(
+                                  child: Text(
+                                trait["categoryName"].toString(),
+                                style: TextStyle(fontSize: 18),
+                              )),
+                            )),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 20),
+                      child: SizedBox(
+                          height: 40.0,
+                          child: TextField(
+                            controller: catController,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(),
+                              hintText: 'If none please specify',
+                            ),
+                          )),
+                    ),
+                    TextButton(
+                        child: const Text("Ok"),
+                        onPressed: () {
+                          if (catController.text != '')
+                            setState(() {
+                              category = catController.text.toString();
+                            });
+                          Navigator.of(context, rootNavigator: true).pop();
+                        }),
+                  ],
+                )),
+              );
+            },
           );
         });
   }
@@ -245,12 +323,28 @@ class _Page1State extends State<Page1> {
     var data = {
       "description": descController.text.toString(),
       "unixTime": datetime,
-      "longitude": currentPostion.longitude,
-      "latitude": currentPostion.latitude,
+      // "longitude": currentPostion.longitude,
+      // "latitude": currentPostion.latitude,
       "classId": predict.data["prediction"][0][0],
       "className": predict.data["prediction"][0][1].toString()
     };
     print(json.encode(data));
+    print(category);
+    var getCategories = await networkHandler.get("/category/allCategories");
+    for (var cat in getCategories.data["list"]) {
+      categories[cat["categoryName"]] = cat["id"];
+    }
+    if (!categories.containsKey(category)) {
+      var data = {"categoryName": category.toString()};
+      var createResponse =
+          await networkHandler.post("/category/createCategory", data);
+    }
+    getCategories = await networkHandler.get("/category/allCategories");
+    categories.clear();
+    for (var cat in getCategories.data["list"]) {
+      categories[cat["categoryName"]] = cat["id"];
+    }
+    print(categories[category]);
   }
 
   void myPost() async {
@@ -276,17 +370,31 @@ class _Page1State extends State<Page1> {
       "file": await MultipartFile.fromFile(image!.path, filename: imageName),
     });
     var predict = await networkHandler.predict(formData);
+    var getCategories = await networkHandler.get("/category/allCategories");
+    for (var cat in getCategories.data["list"]) {
+      categories[cat["categoryName"]] = cat["id"];
+    }
+    if (!categories.containsKey(category)) {
+      var data = {"categoryName": category.toString()};
+      var createResponse =
+          await networkHandler.post("/category/createCategory", data);
+    }
+    getCategories = await networkHandler.get("/category/allCategories");
+    categories.clear();
+    for (var cat in getCategories.data["list"]) {
+      categories[cat["categoryName"]] = cat["id"];
+    }
+    print(categories[category]);
     if (test.data == "OK") {
       if (predict.data["prediction"] != null) {
         try {
           var data = {
             "description": descController.text.toString(),
             "imgLink": response?.downloadLink.toString(),
-            "unixTime": datetime,
+            "unixTime": datetime/1000.round(),
             "longitude": currentPostion.longitude,
             "latitude": currentPostion.latitude,
-            "classId": predict.data["prediction"][0][0],
-            "className": predict.data["prediction"][0][1].toString()
+            "categoryId" : categories[category]
           };
           var postResponse =
               await networkHandler.post("/post/createPost", data);
@@ -329,6 +437,17 @@ class _Page1State extends State<Page1> {
             title: Text('Image Posted'),
           );
         });
+  }
+
+  Future<List<String>> _getprediction() async {
+    FormData formData = FormData.fromMap({
+      "file": await MultipartFile.fromFile(image!.path, filename: imageName),
+    });
+    var predict = await networkHandler.predict(formData);
+    prediction.clear();
+    for (var value in predict.data["prediction"])
+      prediction.add(value.toString());
+    return prediction;
   }
 
   // ignore: prefer_final_fields
@@ -385,84 +504,148 @@ class _Page1State extends State<Page1> {
                             ],
                           ),
                   )),
-              ElevatedButton(
-                onPressed: () {
-                  myAlert();
-                },
-                child: Text('Upload Photo'),
-              ),
-              SizedBox(
-                height: 10,
-              ),
-              //if image not null show the image
-              //if image null show text
+              // ElevatedButton(
+              //   onPressed: () {
+              //     myAlert();
+              //   },
+              //   child: Text('Upload Photo'),
+              // ),
+              // SizedBox(
+              //   height: 10,
+              // ),
+              // //if image not null show the image
+              // //if image null show text
+              // image != null
+              //     ? Padding(
+              //         padding: const EdgeInsets.symmetric(horizontal: 20),
+              //         child: ClipRRect(
+              //           borderRadius: BorderRadius.circular(8),
+              //           child: Image.file(
+              //             //to show image, you type like this.
+              //             File(image!.path),
+              //             fit: BoxFit.cover,
+              //             // width: MediaQuery.of(context).size.width,
+              //             // height: 300,
+              //           ),
+              //         ),
+              //       )
+              //     : Text(
+              //         "No Image",
+              //         style: TextStyle(fontSize: 20),
+              //       ),
+              // SizedBox(height: 12),
+              // FutureBuilder(
+              //     future: _getprediction(),
+              //     builder: (BuildContext context, AsyncSnapshot snapshot) {
+              //       if (!snapshot.data) {
+              //         return SizedBox(height: 0);
+              //       } else {
+              //         final prediction = snapshot.data;
+              //         return Container(
+              //             decoration: BoxDecoration(
+              //                 border: Border.all(),
+              //                 borderRadius:
+              //                     BorderRadius.all(Radius.circular(5))),
+              //             margin: const EdgeInsets.symmetric(
+              //                 vertical: 12.0, horizontal: 20),
+              //             height: 50.0,
+              //             child: ListView(
+              //               scrollDirection: Axis.horizontal,
+              //               children: <Widget>[
+              //                 for (var trait in prediction)
+              //                   InkWell(
+              //                       onTap: () {
+              //                         setState(() {
+              //                           category = trait.toString();
+              //                         });
+              //                       },
+              //                       child: Container(
+              //                         //         decoration: BoxDecoration(
+              //                         // border: Border(right: BorderSide())),
+              //                         width: 150,
+              //                         color: category != ""
+              //                             ? category == trait
+              //                                 ? Colors.grey
+              //                                 : Colors.white
+              //                             : Colors.white,
+              //                         child: Center(
+              //                             child: Text(
+              //                           trait.toString(),
+              //                           style: TextStyle(fontSize: 18),
+              //                         )),
+              //                       )),
+              //                 InkWell(
+              //                     onTap: () {
+              //                       setState(() {
+              //                         category = "";
+              //                       });
+              //                       selectmore(context);
+              //                     },
+              //                     child: Container(
+              //                       width: 200,
+              //                       // color: Colors.purple[600],
+              //                       child: Center(
+              //                           child: Text(
+              //                         "Select from more",
+              //                         style: TextStyle(fontSize: 18),
+              //                       )),
+              //                     )),
+              //               ],
+              //             ));
+              //       }
+              //     }),
               image != null
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          //to show image, you type like this.
-                          File(image!.path),
-                          fit: BoxFit.cover,
-                          // width: MediaQuery.of(context).size.width,
-                          // height: 300,
-                        ),
-                      ),
-                    )
-                  : Text(
-                      "No Image",
-                      style: TextStyle(fontSize: 20),
-                    ),
-              // SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(border: Border.all(), borderRadius: BorderRadius.all(Radius.circular(5))),
-                  margin: const EdgeInsets.symmetric(
-                      vertical: 12.0, horizontal: 20),
-                  height: 50.0,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: <Widget>[
-                      Container(
-                       
-                        width: 200,
-                        // color: Colors.purple[600],
-                        child: const Center(
-                            child: Text(
-                          'Item 1',
-                          style: TextStyle(fontSize: 18),
-                        )),
-                      ),
-                      Container(
-                        
-                        width: 200,
-                        child: const Center(
-                            child: Text(
-                          'Item 2',
-                          style: TextStyle(fontSize: 18),
-                        )),
-                      ),
-                      Container(
-                        
-                        width: 200,
-                        child: const Center(
-                            child: Text(
-                          'Item 3',
-                          style: TextStyle(fontSize: 18),
-                        )),
-                      ),
-                      Container(
-                        
-                        width: 200,
-                        child: const Center(
-                            child: Text(
-                          'Item 4',
-                          style: TextStyle(fontSize: 18),
-                        )),
-                      ),
-                    ],
-                  )),
-              // SizedBox(height: 12),
+                  ? Container(
+                      decoration: BoxDecoration(
+                          border: Border.all(),
+                          borderRadius: BorderRadius.all(Radius.circular(5))),
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 12.0, horizontal: 20),
+                      height: 50.0,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: <Widget>[
+                          for (var trait in prediction)
+                            InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    category = trait.toString();
+                                  });
+                                },
+                                child: Container(
+                                  //         decoration: BoxDecoration(
+                                  // border: Border(right: BorderSide())),
+                                  width: 150,
+                                  color: category != ""
+                                      ? category == trait
+                                          ? Colors.grey
+                                          : Colors.white
+                                      : Colors.white,
+                                  child: Center(
+                                      child: Text(
+                                    trait.toString(),
+                                    style: TextStyle(fontSize: 18),
+                                  )),
+                                )),
+                          InkWell(
+                              onTap: () {
+                                setState(() {
+                                  category = "";
+                                });
+                                selectmore(context);
+                              },
+                              child: Container(
+                                width: 200,
+                                // color: Colors.purple[600],
+                                child: Center(
+                                    child: Text(
+                                  "Select from more",
+                                  style: TextStyle(fontSize: 18),
+                                )),
+                              )),
+                        ],
+                      ))
+                  : SizedBox(height: 20),
               Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: TextField(
@@ -545,10 +728,10 @@ class _Page2State extends State<Page2> {
                           post["description"].toString(),
                           post["latitude"],
                           post["longitude"],
-                          DateTime.fromMillisecondsSinceEpoch(post["unixTime"])
-                              .toString()
-                          // post["classId"],
-                          // post["className"]
+                          DateTime.fromMillisecondsSinceEpoch(post["unixTime"]*1000)
+                              .toString(),
+                          post["categoryName"].toString(),
+                          post["email"].toString()
                           )
                   ],
                 ),
@@ -561,7 +744,7 @@ class _Page2State extends State<Page2> {
   }
 
   Widget _buildRow(
-      String imageLink, String desc, double lat, double lon, String date) {
+      String imageLink, String desc, double lat, double lon, String date, String categoryName, String email) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
@@ -586,7 +769,8 @@ class _Page2State extends State<Page2> {
           Text("Date and Time: $date"),
           Text("Latitude: " '$lat'),
           Text("Longitude: " '$lon'),
-          // Text("Prediction: $className"),
+          Text("Class: $categoryName"),
+          Text("Added by: $email"),
           TextButton(
             style: TextButton.styleFrom(
               textStyle: const TextStyle(fontSize: 20),
