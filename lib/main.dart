@@ -605,6 +605,7 @@ class _Page1State extends State<Page1> {
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: <Widget>[
+                          //TODO: get data in prediction before running this (FutureBuilder)
                           for (var trait in prediction)
                             InkWell(
                                 onTap: () {
@@ -810,9 +811,96 @@ class _Page3State extends State<Page3> {
 
   Set<Marker> _createMarker() {
     return {
+      Marker(
+          markerId: MarkerId("njdvsn"),
+          position: LatLng(22.3219, 87.306),
+          // infoWindow: InfoWindow(title: 'Marker 1'),
+          icon: BitmapDescriptor.defaultMarker,
+          onTap: () {
+            customInfoWindowController.addInfoWindow!(
+                Container(
+                  height: 400,
+                  width: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 200,
+                        height: 200,
+                        decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                            image: DecorationImage(
+                                image: NetworkImage("https://ibb.co/xFCP6tV"),
+                                fit: BoxFit.fitWidth)),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(top: 10, left: 10, right: 10),
+                        child: Text("road"),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Text("all good"),
+                      )
+                    ],
+                  ),
+                ),
+                LatLng(22.3219, 87.306));
+          }),
+          Marker(
+          markerId: MarkerId("road"),
+          position: LatLng(22.3211, 87.3068),
+          // infoWindow: InfoWindow(title: 'Marker 1'),
+          icon: BitmapDescriptor.defaultMarker,
+          onTap: () {
+            customInfoWindowController.addInfoWindow!(
+                Container(
+                  height: 400,
+                  width: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 200,
+                        height: 200,
+                        decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.all(Radius.circular(10)),
+                            image: DecorationImage(
+                                image: NetworkImage("https://ibb.co/xFCP6tV"),
+                                fit: BoxFit.fitWidth)),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(top: 10, left: 10, right: 10),
+                        child: Text("road"),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Text("all good"),
+                      )
+                    ],
+                  ),
+                ),
+                LatLng(22.3211, 87.3068));
+          })
+    };
+    //TODO: get the data in getResponse before running this using FutureBuilder
+    return {
       for (var post in getResponse.data["list"])
         Marker(
-            markerId: MarkerId(post["categoryName"].toString()),
+            markerId: MarkerId(post["id"].toString()),
             position: LatLng(post["latitude"], post["longitude"]),
             // infoWindow: InfoWindow(title: 'Marker 1'),
             icon: BitmapDescriptor.defaultMarker,
@@ -868,7 +956,11 @@ class _Page3State extends State<Page3> {
       body: Stack(children: [
         GoogleMap(
           initialCameraPosition: CameraPosition(
-              target: currentPosition, zoom: 11.0, tilt: 0, bearing: 0),
+            // TODO: set this to current position
+              target: LatLng(22.3219, 87.306),
+              zoom: 16.0,
+              tilt: 0,
+              bearing: 0),
           onMapCreated: onMapCreated,
           myLocationEnabled: true,
           mapType: MapType.satellite,
