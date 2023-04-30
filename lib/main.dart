@@ -5,12 +5,14 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:latlng/latlng.dart';
+// import 'package:latlng/latlng.dart';
 import 'package:async/async.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:custom_info_window/custom_info_window.dart';
 import 'package:dio/dio.dart';
 import 'api.dart';
 import 'login_screen.dart';
@@ -39,11 +41,11 @@ class _HomeState extends State<Home> {
   final pages = [
     Page1(),
     Page2(),
-    // Page3(),
-    Icon(
-      Icons.map_outlined,
-      size: 150,
-    ),
+    Page3(),
+    // Icon(
+    //   Icons.map_outlined,
+    //   size: 150,
+    // ),
   ];
 
   @override
@@ -116,10 +118,8 @@ class _Page1State extends State<Page1> {
   //we can upload image from camera or from gallery based on parameter
   Future _pickImage(ImageSource media) async {
     var temp = await networkHandler.get("/predict/ping");
-    _pickedFile = await _picker.getImage(source: media
-        // maxHeight: 100,
-        // maxWidth: 100
-        );
+    _pickedFile =
+        await _picker.getImage(source: media, maxHeight: 500, maxWidth: 500);
 
     setState(() {
       image = File(_pickedFile!.path);
@@ -391,10 +391,10 @@ class _Page1State extends State<Page1> {
           var data = {
             "description": descController.text.toString(),
             "imgLink": response?.downloadLink.toString(),
-            "unixTime": datetime/1000.round(),
+            "unixTime": datetime / 1000.round(),
             "longitude": currentPostion.longitude,
             "latitude": currentPostion.latitude,
-            "categoryId" : categories[category]
+            "categoryId": categories[category]
           };
           var postResponse =
               await networkHandler.post("/post/createPost", data);
@@ -728,11 +728,11 @@ class _Page2State extends State<Page2> {
                           post["description"].toString(),
                           post["latitude"],
                           post["longitude"],
-                          DateTime.fromMillisecondsSinceEpoch(post["unixTime"]*1000)
+                          DateTime.fromMillisecondsSinceEpoch(
+                                  post["unixTime"] * 1000)
                               .toString(),
                           post["categoryName"].toString(),
-                          post["email"].toString()
-                          )
+                          post["email"].toString())
                   ],
                 ),
               ),
@@ -743,8 +743,8 @@ class _Page2State extends State<Page2> {
     );
   }
 
-  Widget _buildRow(
-      String imageLink, String desc, double lat, double lon, String date, String categoryName, String email) {
+  Widget _buildRow(String imageLink, String desc, double lat, double lon,
+      String date, String categoryName, String email) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
@@ -782,6 +782,111 @@ class _Page2State extends State<Page2> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class Page3 extends StatefulWidget {
+  @override
+  _Page3State createState() => _Page3State();
+}
+
+class _Page3State extends State<Page3> {
+  CustomInfoWindowController customInfoWindowController =
+      CustomInfoWindowController();
+  final networkHandler = NetworkHandler();
+  var getResponse;
+  late LatLng currentPosition;
+
+  Future<void> onMapCreated(GoogleMapController controller) async {
+    var position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+    getResponse = await networkHandler.get("/post/allPosts");
+    customInfoWindowController.googleMapController = controller;
+    setState(() {
+      currentPosition = LatLng(position.latitude, position.longitude);
+    });
+  }
+
+  Set<Marker> _createMarker() {
+    return {
+      for (var post in getResponse.data["list"])
+        Marker(
+            markerId: MarkerId(post["categoryName"].toString()),
+            position: LatLng(post["latitude"], post["longitude"]),
+            // infoWindow: InfoWindow(title: 'Marker 1'),
+            icon: BitmapDescriptor.defaultMarker,
+            onTap: () {
+              customInfoWindowController.addInfoWindow!(
+                  Container(
+                    height: 400,
+                    width: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 200,
+                          height: 200,
+                          decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              image: DecorationImage(
+                                  image:
+                                      NetworkImage(post["imgLink"].toString()),
+                                  fit: BoxFit.fitWidth)),
+                        ),
+                        Padding(
+                          padding:
+                              EdgeInsets.only(top: 10, left: 10, right: 10),
+                          child: Text(post["categoryName"].toString()),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(10),
+                          child: Text(post["description"].toString()),
+                        )
+                      ],
+                    ),
+                  ),
+                  LatLng(post["latitude"], post["longitude"]));
+            }),
+    };
+  }
+
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Map"),
+        centerTitle: true,
+      ),
+      body: Stack(children: [
+        GoogleMap(
+          initialCameraPosition: CameraPosition(
+              target: currentPosition, zoom: 11.0, tilt: 0, bearing: 0),
+          onMapCreated: onMapCreated,
+          myLocationEnabled: true,
+          mapType: MapType.satellite,
+          markers: _createMarker(),
+          onTap: (position) {
+            customInfoWindowController.hideInfoWindow!();
+          },
+          onCameraMove: (position) {
+            customInfoWindowController.onCameraMove!();
+          },
+        ),
+        CustomInfoWindow(
+          controller: customInfoWindowController,
+          height: 400,
+          width: 200,
+          offset: 35,
+        )
+      ]),
     );
   }
 }

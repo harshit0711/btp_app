@@ -9,6 +9,8 @@
         android:label="Road Reporter"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <meta-data android:name="com.google.android.geo.API_KEY"
+           android:value="AIzaSyD_EXh6rhoHHFgNVm74s_LmEjss2Ic1ulI"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
